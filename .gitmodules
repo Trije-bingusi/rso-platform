@@ -1,0 +1,15 @@
+[submodule "svc-courses"]
+	path = svc-courses
+	url = https://github.com/Trije-bingusi/svc-courses.git
+[submodule "svc-notes"]
+	path = svc-notes
+	url = https://github.com/Trije-bingusi/svc-notes.git
+[submodule "svc-users"]
+	path = svc-users
+	url = https://github.com/Trije-bingusi/svc-users.git
+[submodule "svc-gateway"]
+	path = svc-gateway
+	url = https://github.com/Trije-bingusi/svc-gateway.git
+[submodule "rso-frontend"]
+	path = rso-frontend
+	url = https://github.com/Trije-bingusi/rso-frontend.git
