@@ -1,0 +1,211 @@
+services:
+  # Shared Postgres for microservices
+  db:
+    image: postgres:16-alpine
+    container_name: rso-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${PG_USER}
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
+      POSTGRES_DB: ${PG_DEFAULT_DB}
+    ports:
+      - "${PG_PORT}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER} -d ${PG_DEFAULT_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - rso-net
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+    ports:
+      - "5050:80"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - rso-net
+
+  # Keycloak + its DB
+  keycloak-db:
+    image: postgres:16-alpine
+    container_name: keycloak-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+    volumes:
+      - kc_db:/var/lib/postgresql/data
+    networks:
+      - rso-net
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: keycloak
+    command: start-dev
+    environment:
+      KC_DB: postgres
+      KC_DB_URL_HOST: keycloak-db
+      KC_DB_URL_DATABASE: keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_HTTP_PORT: 8080
+    ports:
+      - "${KEYCLOAK_HTTP_PORT}:8080"
+    depends_on:
+      - keycloak-db
+    networks:
+      - rso-net
+
+  # Microservices
+  svc-courses:
+    build:
+      context: ./svc-courses
+      dockerfile: Dockerfile
+    container_name: svc-courses
+    restart: unless-stopped
+    command: sh -c "npm run prisma:generate && npx prisma migrate deploy && npm start"
+    environment:
+      PORT: 3000
+      # connects to shared Postgres, DB "courses"
+      DATABASE_URL: postgresql://${PG_USER}:${PG_PASSWORD}@db:5432/${PG_COURSES_DB}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    ports:
+      - "3000:3000"
+    networks:
+      - rso-net
+
+  svc-notes:
+    build:
+      context: ./svc-notes
+      dockerfile: Dockerfile
+    container_name: svc-notes
+    restart: unless-stopped
+    command: sh -c "npm run prisma:generate && npx prisma migrate deploy && npm start"
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgresql://${PG_USER}:${PG_PASSWORD}@db:5432/${PG_NOTES_DB}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    ports:
+      - "3001:3000"
+    networks:
+      - rso-net
+
+  svc-users:
+    build:
+      context: ./svc-users
+      dockerfile: Dockerfile
+    container_name: svc-users
+    restart: unless-stopped
+    command: sh -c "npm run prisma:generate && npx prisma migrate deploy && npm start"
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgresql://${PG_USER}:${PG_PASSWORD}@db:5432/${PG_USERS_DB}
+      OIDC_ISSUER: ${OIDC_ISSUER}
+      #  go straight to "keycloak"
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE}
+    depends_on:
+      db:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    ports:
+      - "3002:3000"
+    networks:
+      - rso-net
+
+  svc-gateway:
+    build:
+      context: ./svc-gateway
+      dockerfile: Dockerfile
+    container_name: svc-gateway
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      COURSES_URL: http://svc-courses:3000
+      NOTES_URL:   http://svc-notes:3000
+      USERS_URL:   http://svc-users:3000
+      OIDC_ISSUER: ${OIDC_ISSUER}
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE}
+    depends_on:
+      svc-courses:
+        condition: service_healthy
+      svc-notes:
+        condition: service_healthy
+      svc-users:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    ports:
+      - "${GATEWAY_PORT}:3000"
+    networks:
+      - rso-net
+
+  # Frontend
+  rso-frontend:
+    build:
+      context: ./rso-frontend
+      dockerfile: Dockerfile
+    container_name: rso-frontend
+    environment:
+      NUXT_PUBLIC_API_BASE: "http://localhost:${GATEWAY_PORT}"
+      NUXT_PUBLIC_KC_URL: "http://localhost:${KEYCLOAK_HTTP_PORT}"
+      NUXT_PUBLIC_KC_REALM: "rso"
+      NUXT_PUBLIC_KC_CLIENT_ID: "rso-frontend"
+    volumes:
+      - ./rso-frontend:/app
+      - rso_frontend_node_modules:/app/node_modules
+      - rso_frontend_nuxt:/app/.nuxt
+    command: npm run dev -- --host 0.0.0.0 --port 3000
+    depends_on:
+      svc-gateway:
+        condition: service_started
+      keycloak:
+        condition: service_started
+    ports:
+      - "${FRONTEND_PORT}:3000"
+    networks:
+      - rso-net
+
+networks:
+  rso-net:
+
+volumes:
+  db_data:
+  kc_db:
+  rso_frontend_node_modules:
+  rso_frontend_nuxt:
