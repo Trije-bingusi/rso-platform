@@ -13,3 +13,9 @@
 [submodule "rso-frontend"]
 	path = rso-frontend
 	url = https://github.com/Trije-bingusi/rso-frontend.git
+[submodule "svc-video"]
+	path = svc-video
+	url = https://github.com/Trije-bingusi/svc-video.git
+[submodule "svc-transcription"]
+	path = svc-transcription
+	url = https://github.com/Trije-bingusi/svc-transcription.git
