@@ -147,6 +147,57 @@ services:
     networks:
       - rso-net
 
+  svc-video:
+    build:
+      context: ./svc-video
+      dockerfile: Dockerfile
+    container_name: svc-video
+    restart: unless-stopped
+    command: sh -c "npm run prisma:generate && npx prisma migrate deploy && npm start"
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgresql://${PG_USER}:${PG_PASSWORD}@db:5432/${PG_VIDEO_DB}
+      AZURE_STORAGE_ACCOUNT: ${AZURE_STORAGE_ACCOUNT:-}
+      AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-}
+      AZURE_STORAGE_CONTAINER: ${AZURE_STORAGE_CONTAINER:-videos}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    ports:
+      - "3004:3000"
+    networks:
+      - rso-net
+
+  svc-transcription:
+    build:
+      context: ./svc-transcription
+      dockerfile: Dockerfile
+    container_name: svc-transcription
+    restart: unless-stopped
+    command: sh -c "npm run prisma:generate && npx prisma migrate deploy && npm start"
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgresql://${PG_USER}:${PG_PASSWORD}@db:5432/${PG_TRANSCRIPTION_DB}
+      AZURE_SPEECH_KEY: ${AZURE_SPEECH_KEY:-}
+      AZURE_SPEECH_REGION: ${AZURE_SPEECH_REGION:-westeurope}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    ports:
+      - "3005:3000"
+    networks:
+      - rso-net
+
   svc-gateway:
     build:
       context: ./svc-gateway
@@ -158,6 +209,8 @@ services:
       COURSES_URL: http://svc-courses:3000
       NOTES_URL:   http://svc-notes:3000
       USERS_URL:   http://svc-users:3000
+      VIDEO_UPLOAD_URL:   http://svc-video:3000
+      TRANSCRIPTION_URL: http://svc-transcription:3000
       OIDC_ISSUER: ${OIDC_ISSUER}
       OIDC_JWKS_URI: ${OIDC_JWKS_URI}
       OIDC_AUDIENCE: ${OIDC_AUDIENCE}
@@ -167,6 +220,10 @@ services:
       svc-notes:
         condition: service_healthy
       svc-users:
+        condition: service_healthy
+      svc-video:
+        condition: service_healthy
+      svc-transcription:
         condition: service_healthy
       keycloak:
         condition: service_started

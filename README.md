@@ -28,6 +28,13 @@ High‑level view of the local stack managed by this repo:
 | Courses +       |       | Notes per       |           | User profiles   |
 | lectures        |       | lecture         |           | + roles         |
 +-----------------+       +-----------------+           +-----------------+
+        |                             |
+        v                             v
++-----------------+       +-----------------+
+|   svc-video     |       | svc-transcription|
+| Video upload &  |       | Video-to-text   |
+| Azure Storage   |       | with Azure AI   |
++-----------------+       +-----------------+
 
 +-----------------+      +-----------------+      +-----------------+
 | Postgres (db)   |      |   Keycloak      |      |    pgAdmin      |
@@ -39,6 +46,8 @@ Microservices live in **their own repositories** and are pulled in here as submo
 - [`svc-courses`](https://github.com/Trije-bingusi/svc-courses)
 - [`svc-notes`](https://github.com/Trije-bingusi/svc-notes)
 - [`svc-users`](https://github.com/Trije-bingusi/svc-users)
+- [`svc-video`](https://github.com/Trije-bingusi/svc-video) - Video upload and management with Azure Blob Storage
+- [`svc-transcription`](https://github.com/Trije-bingusi/svc-transcription) - Video transcription with Azure Speech Services
 - [`svc-gateway`](https://github.com/Trije-bingusi/svc-gateway)
 - [`rso-frontend`](https://github.com/Trije-bingusi/rso-frontend)
 
@@ -54,13 +63,15 @@ rso-platform/
   .env.example              # baseline env vars for local dev
   .env                      # your local overrides
   db/
-    init.sql                # creates initial databases (courses, notes, users)
+    init.sql                # creates initial databases (courses, notes, users, video_upload, transcription)
   scripts/
     dev-up.sh               # build + start all containers
     dev-down.sh             # stop stack
   svc-courses/              # git submodule
   svc-notes/                # git submodule
   svc-users/                # git submodule
+  svc-video/                # git submodule
+  svc-transcription/        # git submodule
   svc-gateway/              # git submodule
   rso-frontend/             # git submodule
 ```

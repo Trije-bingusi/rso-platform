@@ -1,3 +1,5 @@
 CREATE DATABASE courses;
 CREATE DATABASE notes;
 CREATE DATABASE users;
+CREATE DATABASE video_upload;
+CREATE DATABASE transcription;
