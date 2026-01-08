@@ -20,21 +20,21 @@ High‑level view of the local stack managed by this repo:
 | rso-frontend (Nuxt) | <----> |  svc-gateway    |  (API Gateway / BFF)
 +---------------------+        +-----------------+
                                       |
-        +-----------------------------+---------------------------+
-        |                             |                           |
-        v                             v                           v
-+-----------------+       +-----------------+           +-----------------+
-|  svc-courses    |       |   svc-notes     |           |   svc-users     |
-| Courses +       |       | Notes per       |           | User profiles   |
-| lectures        |       | lecture         |           | + roles         |
-+-----------------+       +-----------------+           +-----------------+
-        |                             |
-        v                             v
-+-----------------+       +-----------------+
-|   svc-video     |       | svc-transcription|
-| Video upload &  |       | Video-to-text   |
-| Azure Storage   |       | with Azure AI   |
-+-----------------+       +-----------------+
+        +-----------------------------+-----------------------------+
+        |              |              |           |                 |
+        v              |              v           |                 v
++-----------------+    |   +-----------------+    |       +-----------------+
+|  svc-courses    |    |   |   svc-notes     |    |       |   svc-users     |
+| Courses +       |    |   | Notes per       |    |       | User profiles   |
+| lectures        |    |   | lecture         |    |       | + roles         |
++-----------------+    |   +-----------------+    |       +-----------------+
+                       |                          |
+                       v                          v
+              +-----------------+       +-----------------+
+              |   svc-video     |       | svc-transcription|
+              | Video upload &  |       | Video-to-text   |
+              | Azure Storage   |       | with Azure AI   |
+              +-----------------+       +-----------------+
 
 +-----------------+      +-----------------+      +-----------------+
 | Postgres (db)   |      |   Keycloak      |      |    pgAdmin      |
