@@ -350,7 +350,104 @@ These values are already wired via `.env` and `docker-compose.yml`.
 
 ---
 
-## 6. Microservices overview
+## 6. Azure Integration
+
+The platform supports optional integration with Azure services for production features:
+
+### 6.1 Azure Blob Storage (Video Upload)
+
+Azure Blob Storage is used to store uploaded lecture videos in production. For local development, videos are stored in the container's filesystem.
+
+#### Setting up Azure Blob Storage:
+
+1. **Create a Storage Account** in Azure Portal:
+   - Go to https://portal.azure.com
+   - Click "Create a resource" → "Storage account"
+   - Select your subscription and resource group
+   - Choose a unique storage account name (e.g., `rsovideostorage`)
+   - Select a region close to your users
+   - Performance: **Standard**
+   - Redundancy: **LRS** (Locally-redundant storage)
+   - Click "Review + Create" → "Create"
+
+2. **Create a Container**:
+   - Navigate to your storage account
+   - Left menu → "Containers" (under Data storage)
+   - Click "+ Container"
+   - Name: `videos`
+   - Public access level: **Private (no anonymous access)**
+   - Click "Create"
+
+3. **Get the Connection String**:
+   - Left menu → "Access keys" (under Security + networking)
+   - Click "Show" next to "Connection string" under key1
+   - Copy the entire connection string
+
+4. **Configure your application**:
+   - Open `.env` file
+   - Set `AZURE_STORAGE_CONNECTION_STRING` to your copied connection string
+   - Example:
+     ```env
+     AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=rsovideostorage;AccountKey=your-key-here;EndpointSuffix=core.windows.net
+     AZURE_STORAGE_CONTAINER=videos
+     ```
+
+5. **Restart the services**:
+   ```bash
+   docker-compose build svc-video
+   docker-compose up -d svc-video
+   ```
+
+**How it works:**
+- When `AZURE_STORAGE_CONNECTION_STRING` is set, videos are uploaded to Azure Blob Storage
+- When empty, videos are stored locally in `svc-video/local-storage/`
+- The application automatically detects which mode to use
+
+**Cost optimization:**
+- Use LRS redundancy for development/testing
+- Consider lifecycle policies to move old videos to cool/archive tiers
+- Enable soft delete with short retention period (7 days)
+
+### 6.2 Azure Speech Services (Video Transcription)
+
+Azure Speech Services is used to transcribe lecture videos to text.
+
+#### Setting up Azure Speech Services:
+
+1. **Create a Speech resource** in Azure Portal:
+   - Go to https://portal.azure.com
+   - Click "Create a resource" → Search for "Speech"
+   - Select a subscription and resource group
+   - Choose a region (e.g., `westeurope`)
+   - Pricing tier: **Free F0** (for testing) or **Standard S0** (for production)
+   - Click "Review + Create" → "Create"
+
+2. **Get the API Key**:
+   - Navigate to your Speech resource
+   - Left menu → "Keys and Endpoint"
+   - Copy **Key 1** and the **Region**
+
+3. **Configure your application**:
+   - Open `.env` file
+   - Set the Azure Speech credentials:
+     ```env
+     AZURE_SPEECH_KEY=your-key-here
+     AZURE_SPEECH_REGION=westeurope
+     ```
+
+4. **Restart the services**:
+   ```bash
+   docker-compose build svc-transcription
+   docker-compose up -d svc-transcription
+   ```
+
+**Free tier limits:**
+- 5 audio hours per month free
+- After that, pay-as-you-go pricing applies
+
+---
+
+## 7. Microservices overview
 
 All backend services are built with:
 
@@ -672,7 +769,7 @@ Browser client for _eUčilnica+_. It **never calls backend services directly** �
 
 ---
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 
 Some common issues and fixes.
 
@@ -721,6 +818,45 @@ Then reload the frontend and log in again.
 - Verify that `OIDC_ISSUER`, `OIDC_JWKS_URI` and `OIDC_AUDIENCE` in `.env` match:
   - Issuer: `http://keycloak:8080/realms/rso`
   - Audience: `rso-frontend`
+
+### Service not running or returning 404
+
+If a specific service (e.g., `svc-courses`) is not responding:
+
+1. Check if the container is running:
+   ```bash
+   docker ps | grep svc-courses
+   ```
+
+2. If not running, start it:
+   ```bash
+   docker-compose up -d svc-courses
+   ```
+
+3. If still failing, rebuild and restart:
+   ```bash
+   docker-compose build svc-courses
+   docker-compose up -d svc-courses
+   ```
+
+4. Check logs for errors:
+   ```bash
+   docker logs svc-courses
+   ```
+
+### Database migrations not applied
+
+If you get errors like "relation does not exist":
+
+1. Run migrations manually:
+   ```bash
+   docker exec svc-courses npx prisma migrate deploy
+   ```
+
+2. Or restart the service (migrations run on startup):
+   ```bash
+   docker-compose restart svc-courses
+   ```
 
 ---
 
