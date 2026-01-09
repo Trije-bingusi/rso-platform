@@ -190,7 +190,7 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/healthz"]
+      test: ["CMD", "curl", "-f", "http://localhost:3000/healthz"]
       interval: 10s
       timeout: 3s
       retries: 10
@@ -211,7 +211,7 @@ services:
       NOTES_URL:   http://svc-notes:3000
       USERS_URL:   http://svc-users:3000
       VIDEO_UPLOAD_URL:   http://svc-video:3000
-      TRANSCRIPTION_URL: http://svc-transcription:3000
+      TRANSCRIPTIONS_URL: http://svc-transcription:3000
       OIDC_ISSUER: ${OIDC_ISSUER}
       OIDC_JWKS_URI: ${OIDC_JWKS_URI}
       OIDC_AUDIENCE: ${OIDC_AUDIENCE}
